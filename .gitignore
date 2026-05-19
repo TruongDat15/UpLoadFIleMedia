@@ -1,0 +1,85 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.venv/*
+
+# Env files
+.env
+.env.*
+.env.local
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# pytest
+.pytest_cache/
+
+# mypy
+.mypy_cache/
+
+# Coverage
+.coverage
+htmlcov/
+coverage.xml
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Docker
+docker-compose.override.yml
+# local docker volumes / data directories
+data/
+
+# Uploads / runtime files
+upload/
+Server/data/
+
+# Database files
+*.sqlite3
+*.db
+
+# Python virtualenv created by some tools
+/.venv
+
+# Distribution of wheel files
+*.whl
+
+# Ignore compiled ffmpeg binaries if accidentally placed
+ffmpeg
+ffmpeg.exe
+
+# Misc
+*.pem
+*.key
+
+# Keep this file in repo; it excludes local development artifacts
+
