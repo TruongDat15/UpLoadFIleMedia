@@ -28,7 +28,7 @@ python-json-logger==2.0.7
 structlog==24.1.0
 
 # Media
-ffmpeg-python==0.2.1
+ffmpeg-python==0.2.0
 
 # Testing
 pytest==7.4.3
@@ -40,3 +40,4 @@ black==23.12.0
 flake8==6.1.0
 isort==5.13.2
 
+email-validator

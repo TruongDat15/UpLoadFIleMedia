@@ -1,16 +1,61 @@
-# This is a sample Python script.
+from fastapi import FastAPI
+from contextlib import asynccontextmanager
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+# Relative imports (works from anywhere)
+from core.database import Base
+from core.database import engine
+from core.middleware import setup_middlewares
+from api import api_router
+
+from models.user_model import User  # noqa: F401 - imported so SQLAlchemy registers metadata
+from models.media_model import Media  # noqa: F401 - imported so SQLAlchemy registers metadata
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+# ============================================
+# Startup & Shutdown Events
+# ============================================
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    print("🚀 Initializing database...")
+    Base.metadata.create_all(bind=engine)
+    print("✅ Database ready!")
+    yield
+    # Shutdown
+    print("🛑 Shutting down...")
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+# ============================================
+# Initialize FastAPI App
+# ============================================
+app = FastAPI(
+    title="Media Upload API",
+    version="1.0.0",
+    description="Upload media files with chunking and processing",
+    lifespan=lifespan
+)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+app.include_router(api_router)
+setup_middlewares(app)
+
+
+# ============================================
+# API Endpoints
+# ============================================
+@app.get("/")
+def root():
+    return {
+        "message": "Media Upload API Running",
+        "docs": "http://localhost:8000/docs",
+        "version": "1.0.0"
+    }
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "Media Upload API"
+    }
+
+
