@@ -6,7 +6,7 @@ DATABASE_URL = "mysql+pymysql://testuser:test123@localhost:3306/testdb"
 
 engine = create_engine(
     DATABASE_URL,
-    echo=True
+    echo=False
 )
 
 SessionLocal = sessionmaker(

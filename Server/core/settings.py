@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     cors_allow_credentials: bool = Field(default=False, validation_alias="CORS_ALLOW_CREDENTIALS")
     cors_allow_methods: str = Field(default="*", validation_alias="CORS_ALLOW_METHODS")
     cors_allow_headers: str = Field(default="*", validation_alias="CORS_ALLOW_HEADERS")
+    bucket: str = Field(default="upload", validation_alias="BUCKET")
+    chunk_size: int = Field(default=5 * 1024 * 1024, validation_alias="CHUNK_SIZE")
 
     @property
     def cors_origin_list(self) -> list[str]:

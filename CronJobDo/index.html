@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload File Lớn theo Chunks</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 500px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h2 { text-align: center; color: #333; }
+        .form-group { margin-bottom: 15px; }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:disabled { background-color: #9eccfa; cursor: not-allowed; }
+        #progress-container {
+            margin-top: 20px;
+            display: none;
+        }
+        .progress-bar {
+            width: 100%;
+            background-color: #f3f3f3;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .progress-fill {
+            height: 20px;
+            width: 0;
+            background-color: #28a745;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            font-size: 12px;
+            transition: width 0.2s;
+        }
+        #status-log {
+            margin-top: 15px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: #f8f9fa;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 13px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Upload Video (Chunking)</h2>
+
+    <div class="form-group">
+        <input type="file" id="fileInput" accept="video/*">
+        <div id="selected-file" style="margin-top: 8px; font-size: 13px; color: #555;">Chưa chọn file nào</div>
+    </div>
+
+    <button id="uploadBtn" onclick="startUpload()">Bắt đầu Upload</button>
+
+    <div id="progress-container">
+        <p id="progress-text">Đang chuẩn bị...</p>
+        <div class="progress-bar">
+            <div id="progressBarFill" class="progress-fill">0%</div>
+        </div>
+    </div>
+
+    <div id="status-log">Nhật ký hệ thống sẵn sàng...</div>
+
+    <script>
+        const CHUNK_SIZE = 1024 * 1024; // 1 MB mỗi chunk giống Python
+        const SERVER_URL = "http://127.0.0.1:8088";
+
+        const fileInput = document.getElementById('fileInput');
+        const selectedFileBox = document.getElementById('selected-file');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                selectedFileBox.innerText = `Đã chọn: ${file.name} (${file.size} bytes, ${file.type || 'unknown'})`;
+                log(`Đã chọn file: ${file.name}`);
+            } else {
+                selectedFileBox.innerText = 'Chưa chọn file nào';
+                log('Không có file nào được chọn');
+            }
+        });
+
+        function log(message) {
+            const logBox = document.getElementById('status-log');
+            logBox.innerHTML += `<br>-> ${message}`;
+            logBox.scrollTop = logBox.scrollHeight; // Tự động cuộn xuống cuối
+        }
+
+        async function startUpload() {
+            const progressContainer = document.getElementById('progress-container');
+            const progressBarFill = document.getElementById('progressBarFill');
+            const progressText = document.getElementById('progress-text');
+
+            log(`Debug: fileInput.files.length = ${fileInput.files.length}`);
+
+            if (!fileInput.files.length) {
+                alert("Vui lòng chọn một file video trước!");
+                log('Chưa có file nào được chọn');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const filename = file.name;
+            const fileSize = file.size;
+
+            // Tính toán tổng số chunk cần gửi
+            const totalChunks = Math.ceil(fileSize / CHUNK_SIZE);
+
+            // Khóa nút upload và hiển thị thanh tiến trình
+            uploadBtn.disabled = true;
+            progressContainer.style.display = 'block';
+            document.getElementById('status-log').innerHTML = "Bắt đầu khởi tạo dữ liệu...";
+
+            log(`Bắt đầu upload ${filename} (${fileSize} bytes) chia thành ${totalChunks} chunks...`);
+
+            // Vòng lặp cắt file và gửi tuần tự
+            for (let chunkIndex = 0; chunkIndex < totalChunks; chunkIndex++) {
+                // Xác định vị trí cắt của chunk hiện tại
+                const start = chunkIndex * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, fileSize);
+                const chunkData = file.slice(start, end);
+
+                // Đóng gói dữ liệu giống hệt Multipart Form-data trong thư viện requests của Python
+                const formData = new FormData();
+                // Khớp chính xác key 'file' chứa blob (tên file là chunk_X) và các trường data khác
+                formData.append('file', chunkData, `chunk_${chunkIndex}`);
+                formData.append('filename', filename);
+                formData.append('chunk_index', chunkIndex);
+
+                try {
+                    const response = await fetch(`${SERVER_URL}/upload-chunk`, {
+                        method: 'POST',
+                        body: formData // Fetch tự động set Header Multipart/form-data kèm boundary thích hợp
+                    });
+
+                    if (response.ok) {
+                        // Cập nhật giao diện tiến trình %
+                        const percentComplete = Math.round(((chunkIndex + 1) / totalChunks) * 100);
+                        progressBarFill.style.width = percentComplete + '%';
+                        progressBarFill.innerText = percentComplete + '%';
+                        progressText.innerText = `Đang gửi chunk ${chunkIndex + 1}/${totalChunks}...`;
+                        log(`Đã gửi thành công chunk ${chunkIndex + 1}/${totalChunks}`);
+                    } else {
+                        const errorText = await response.text();
+                        log(`X Lỗi khi gửi chunk ${chunkIndex}: ${errorText}`);
+                        uploadBtn.disabled = false;
+                        return;
+                    }
+                } catch (error) {
+                    log(`X Lỗi kết nối mạng ở chunk ${chunkIndex}: ${error.message}`);
+                    uploadBtn.disabled = false;
+                    return;
+                }
+            }
+
+            // Giai đoạn cuối: Yêu cầu Backend gộp file (Merge)
+            progressText.innerText = "Tất cả chunk đã lên server. Đang yêu cầu gộp file...";
+            log("Tất cả chunk đã lên server. Đang yêu cầu gộp file...");
+
+            // Vì code Python của bạn gửi dạng form-data chuẩn cho API merge: data={"filename":..., "total_chunks":...}
+            const mergeForm = new FormData();
+            mergeForm.append('filename', filename);
+            mergeForm.append('total_chunks', totalChunks);
+
+            try {
+                const mergeResponse = await fetch(`${SERVER_URL}/merge-chunks`, {
+                    method: 'POST',
+                    body: mergeForm
+                });
+
+                const mergeResult = await mergeResponse.json();
+
+                if (mergeResponse.ok) {
+                    log(`Thành công: ${mergeResult.message || 'File đã được gộp!'}`);
+                    progressText.innerText = "Hoàn thành upload và gộp file!";
+                } else {
+                    log(`X Lỗi khi gộp file: ${mergeResult.message || 'Lỗi không xác định'}`);
+                }
+            } catch (error) {
+                log(`X Lỗi kết nối khi gọi lệnh gộp file: ${error.message}`);
+            } finally {
+                // Mở khóa nút bấm để sẵn sàng cho lần upload tiếp theo
+                uploadBtn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
