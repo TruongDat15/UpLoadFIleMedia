@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Parallel Chunk Upload</title>
+  <!-- HLS.js library từ CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@latest/dist/hls.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+    }
+
+    .tab-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 30px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .tab-btn {
+      padding: 12px 24px;
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all 0.3s ease;
+      position: relative;
+      bottom: -2px;
+    }
+
+    .tab-btn:hover {
+      color: #667eea;
+    }
+
+    .tab-btn.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+
+    h1 {
+      color: #333;
+      margin-bottom: 10px;
+      font-size: 28px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      color: #999;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .file-input-wrapper {
+      position: relative;
+      margin-bottom: 25px;
+    }
+
+    .file-input-label {
+      display: block;
+      padding: 20px;
+      background: #f5f5f5;
+      border: 2px dashed #667eea;
+      border-radius: 8px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .file-input-label:hover {
+      background: #eef2ff;
+      border-color: #764ba2;
+    }
+
+    .file-input-label.dragover {
+      background: #e8eeff;
+      border-color: #764ba2;
+      transform: scale(1.02);
+    }
+
+    .file-input-label input {
+      display: none;
+    }
+
+    .file-icon {
+      font-size: 32px;
+      margin-bottom: 10px;
+    }
+
+    .file-input-label p {
+      color: #667eea;
+      font-weight: 500;
+      margin: 5px 0;
+    }
+
+    .file-input-label .hint {
+      color: #999;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    #fileName {
+      color: #333;
+      font-weight: 600;
+      margin-top: 5px;
+      font-size: 14px;
+    }
+
+    .file-info {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin-bottom: 25px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 8px;
+    }
+
+    .info-item {
+      text-align: center;
+    }
+
+    .info-label {
+      font-size: 12px;
+      color: #999;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 5px;
+    }
+
+    .info-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #333;
+    }
+
+    .progress-section {
+      margin-bottom: 25px;
+    }
+
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .progress-label {
+      color: #333;
+      font-weight: 500;
+    }
+
+    .progress-percent {
+      color: #667eea;
+      font-weight: bold;
+    }
+
+    .progress-bar {
+      width: 100%;
+      height: 8px;
+      background: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      width: 0%;
+      transition: width 0.3s ease;
+      border-radius: 10px;
+    }
+
+    .progress-details {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      font-size: 12px;
+      color: #666;
+    }
+
+    .detail-item {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .detail-label {
+      font-weight: 500;
+    }
+
+    .detail-value {
+      color: #333;
+      font-weight: 600;
+    }
+
+    .status-message {
+      padding: 12px 16px;
+      background: #f0f4ff;
+      border-left: 4px solid #667eea;
+      border-radius: 4px;
+      color: #333;
+      font-size: 14px;
+      margin-bottom: 20px;
+      min-height: 50px;
+      display: flex;
+      align-items: center;
+    }
+
+    .status-message.success {
+      background: #f0fdf4;
+      border-left-color: #10b981;
+      color: #065f46;
+    }
+
+    .status-message.error {
+      background: #fef2f2;
+      border-left-color: #ef4444;
+      color: #7f1d1d;
+    }
+
+    .status-message.warning {
+      background: #fffbeb;
+      border-left-color: #f59e0b;
+      color: #92400e;
+    }
+
+    .buttons-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    button {
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    #uploadBtn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+
+    #uploadBtn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4);
+    }
+
+    #uploadBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #resumeBtn {
+      background: #10b981;
+      color: white;
+    }
+
+    #resumeBtn:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+      background: #059669;
+    }
+
+    #resumeBtn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    #clearBtn {
+      background: #ef4444;
+      color: white;
+      grid-column: 1 / 3;
+    }
+
+    #clearBtn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+      background: #dc2626;
+    }
+
+    @media (max-width: 600px) {
+      .container {
+        padding: 20px;
+      }
+
+      h1 {
+        font-size: 24px;
+      }
+
+      .buttons-group {
+        grid-template-columns: 1fr;
+      }
+
+      #clearBtn {
+        grid-column: auto;
+      }
+
+      .file-info {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .status-uploading {
+      display: flex;
+      align-items: center;
+    }
+
+    .status-uploading .spinner {
+      display: inline-block;
+    }
+
+    /* ===== VIDEO PLAYER STYLES ===== */
+    .video-player-container {
+      background: #000;
+      border-radius: 8px;
+      overflow: hidden;
+      margin-bottom: 30px;
+      aspect-ratio: 16 / 9;
+    }
+
+    .video-player {
+      width: 100%;
+      height: 100%;
+    }
+
+    .video-list {
+      display: grid;
+      gap: 20px;
+    }
+
+    .video-card {
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      overflow: hidden;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+
+    .video-card:hover {
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+      transform: translateY(-4px);
+    }
+
+    .video-thumbnail {
+      width: 100%;
+      height: 180px;
+      background: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 48px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .video-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .video-thumbnail-overlay {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 0, 0, 0.3);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .video-card:hover .video-thumbnail-overlay {
+      opacity: 1;
+    }
+
+    .play-button {
+      width: 60px;
+      height: 60px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+      color: white;
+    }
+
+    .video-info {
+      padding: 16px;
+    }
+
+    .video-title {
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+      font-size: 16px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .video-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .video-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .video-action-btn {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-play {
+      background: #667eea;
+      color: white;
+    }
+
+    .btn-play:hover {
+      background: #764ba2;
+    }
+
+    .btn-convert {
+      background: #10b981;
+      color: white;
+    }
+
+    .btn-convert:hover {
+      background: #059669;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+    }
+
+    .empty-state h3 {
+      color: #333;
+      margin-bottom: 10px;
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #667eea;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .video-player-close {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.5);
+      color: white;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 24px;
+      z-index: 10;
+    }
+
+    .player-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+      display: none;
+    }
+
+    .player-overlay.active {
+      display: flex;
+    }
+
+    .player-content {
+      position: relative;
+      width: 100%;
+      max-width: 1000px;
+      aspect-ratio: 16 / 9;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="tab-buttons">
+      <button class="tab-btn active" onclick="switchTab('upload')">📤 Upload</button>
+      <button class="tab-btn" onclick="switchTab('videos')">🎬 My Videos</button>
+    </div>
+
+    <div id="uploadTab" class="tab-content active">
+      <h1>📤 Upload Video</h1>
+      <p class="subtitle">Upload file của bạn nhanh chóng với upload song song</p>
+
+    <div class="file-input-wrapper">
+      <label class="file-input-label" id="fileLabel">
+        <input type="file" id="fileInput" accept="video/*">
+        <div class="file-icon">📁</div>
+        <p>Kéo file vào đây hoặc nhấp để chọn</p>
+        <span class="hint">Hỗ trợ MP4, MKV, WebM, v.v...</span>
+        <div id="fileName"></div>
+      </label>
+    </div>
+
+    <div class="file-info" id="fileInfo" style="display: none;">
+      <div class="info-item">
+        <div class="info-label">Kích thước</div>
+        <div class="info-value" id="fileSize">0 MB</div>
+      </div>
+      <div class="info-item">
+        <div class="info-label">Tổng Chunk</div>
+        <div class="info-value" id="chunkCount">0</div>
+      </div>
+    </div>
+
+    <div class="progress-section" id="progressSection" style="display: none;">
+      <div class="status-message" id="status">Chưa upload</div>
+
+      <div class="progress-header">
+        <span class="progress-label">Tiến độ upload</span>
+        <span class="progress-percent"><span id="progressValue">0</span>%</span>
+      </div>
+
+      <div class="progress-bar">
+        <div class="progress-fill" id="progress"></div>
+      </div>
+
+      <div class="progress-details">
+        <div class="detail-item">
+          <span class="detail-label">Tốc độ:</span>
+          <span class="detail-value" id="speed">0 MB/s</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Thời gian còn:</span>
+          <span class="detail-value" id="timeRemaining">--:--</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Uploaded:</span>
+          <span class="detail-value" id="uploadedSize">0 MB</span>
+        </div>
+        <div class="detail-item">
+          <span class="detail-label">Tổng:</span>
+          <span class="detail-value" id="totalSize">0 MB</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="buttons-group">
+      <button onclick="startUpload()" id="uploadBtn">Upload</button>
+      <button onclick="resumeUpload()" id="resumeBtn">Resume</button>
+      <button onclick="clearSession()" id="clearBtn">Xóa Session</button>
+    </div>
+    </div>
+
+    <div id="videosTab" class="tab-content">
+      <h1>🎬 My Videos</h1>
+      <p class="subtitle">Danh sách video đã upload</p>
+
+      <div id="videosList" class="video-list">
+        <div class="empty-state">
+          <div class="empty-state-icon">🎥</div>
+          <h3>Không có video nào</h3>
+          <p>Hãy upload video trong tab Upload</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="playerOverlay" class="player-overlay">
+    <div class="player-content">
+      <button class="video-player-close" onclick="closeVideoPlayer()">✕</button>
+      <video id="videoPlayer" class="video-player" controls></video>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8888";
+    const CONCURRENCY = 4;
+
+    let selectedFile = null;
+    let uploadId = localStorage.getItem("upload_id");
+    let chunkSize = Number(localStorage.getItem("chunk_size")) || 0;
+    let totalParts = Number(localStorage.getItem("total_parts")) || 0;
+    let uploadedCount = 0;
+    let startTime = 0;
+    let uploadedBytes = 0;
+    let hlsInstance = null;
+
+    const fileInput = document.getElementById("fileInput");
+    const fileLabel = document.getElementById("fileLabel");
+    const fileName = document.getElementById("fileName");
+    const statusEl = document.getElementById("status");
+    const progressSection = document.getElementById("progressSection");
+    const fileInfo = document.getElementById("fileInfo");
+    const uploadBtn = document.getElementById("uploadBtn");
+    const resumeBtn = document.getElementById("resumeBtn");
+
+    // ===== TAB SWITCHING =====
+    function switchTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll(".tab-content").forEach(tab => {
+        tab.classList.remove("active");
+      });
+
+      // Deactivate all buttons
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+      });
+
+      // Show selected tab
+      document.getElementById(tabName + "Tab").classList.add("active");
+      event.target.classList.add("active");
+
+      if (tabName === "videos") {
+        loadVideoList();
+      }
+    }
+
+    // ===== VIDEO LOADING & PLAYING =====
+    async function loadVideoList() {
+      const videosList = document.getElementById("videosList");
+      videosList.innerHTML = '<div style="text-align: center;"><div class="loading-spinner"></div> Đang tải...</div>';
+
+      try {
+        const res = await fetch(`${API_BASE}/video/list`);
+        if (!res.ok) throw new Error("Failed to load videos");
+
+        const data = await res.json();
+
+        if (!data.videos || data.videos.length === 0) {
+          videosList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-state-icon">🎥</div>
+              <h3>Không có video nào</h3>
+              <p>Hãy upload video trong tab Upload</p>
+            </div>
+          `;
+          return;
+        }
+
+        videosList.innerHTML = data.videos.map(video => `
+          <div class="video-card">
+            <div class="video-thumbnail">
+              <img src="${video.thumbnail_url}" alt="${video.filename}" onerror="this.style.display='none'">
+              <div class="video-thumbnail-overlay">
+                <div class="play-button">▶</div>
+              </div>
+            </div>
+            <div class="video-info">
+              <div class="video-title">${video.filename}</div>
+              <div class="video-meta">
+                <span>⏱️ ${formatDuration(video.duration)}</span>
+                <span>📅 ${new Date(video.created_at).toLocaleDateString('vi-VN')}</span>
+              </div>
+              <div class="video-actions">
+                <button class="video-action-btn btn-play" onclick="playVideo('${video.video_id}', '${video.playlist_url}')">▶ Phát</button>
+                <button class="video-action-btn btn-convert" onclick="downloadRaw('${video.video_id}')">⬇️ Tải</button>
+              </div>
+            </div>
+          </div>
+        `).join("");
+
+      } catch (err) {
+        console.error(err);
+        videosList.innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">❌</div>
+            <h3>Lỗi tải danh sách video</h3>
+            <p>${err.message}</p>
+          </div>
+        `;
+      }
+    }
+
+    function formatDuration(seconds) {
+      if (!seconds) return "N/A";
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = seconds % 60;
+
+      if (hours > 0) {
+        return `${hours}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+      }
+      return `${minutes}:${String(secs).padStart(2, '0')}`;
+    }
+
+    // ===== HLS PLAYBACK =====
+    function playVideo(videoId, playlistUrl) {
+      const playerOverlay = document.getElementById("playerOverlay");
+      const videoPlayer = document.getElementById("videoPlayer");
+
+      const fullPlaylistUrl = `${API_BASE}${playlistUrl}`;
+
+      playerOverlay.classList.add("active");
+
+      // Dùng hls.js để phát HLS
+      if (Hls.isSupported()) {
+        if (hlsInstance) {
+          hlsInstance.destroy();
+        }
+
+        hlsInstance = new Hls({
+          debug: false,
+          enableWorker: true,
+          lowLatencyMode: true,
+        });
+
+        hlsInstance.loadSource(fullPlaylistUrl);
+        hlsInstance.attachMedia(videoPlayer);
+
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          console.log("HLS manifest loaded");
+          videoPlayer.play().catch(err => console.error("Play error:", err));
+        });
+
+        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          console.error("HLS error:", data);
+          if (data.fatal) {
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                alert("Lỗi network. Kiểm tra kết nối internet.");
+                break;
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                alert("Lỗi media. File video có thể không hợp lệ.");
+                break;
+              default:
+                alert("Lỗi phát video: " + data.reason);
+            }
+          }
+        });
+      } else if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+        // Safari native HLS support
+        videoPlayer.src = fullPlaylistUrl;
+        videoPlayer.play().catch(err => console.error("Play error:", err));
+      } else {
+        alert("Browser của bạn không hỗ trợ HLS streaming");
+      }
+    }
+
+    function closeVideoPlayer() {
+      const playerOverlay = document.getElementById("playerOverlay");
+      const videoPlayer = document.getElementById("videoPlayer");
+
+      videoPlayer.pause();
+      videoPlayer.src = "";
+
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+
+      playerOverlay.classList.remove("active");
+    }
+
+    function downloadRaw(videoId) {
+      alert("Chức năng tải file sẽ được thêm vào phiên bản tiếp theo");
+    }
+
+    // Drag & Drop
+    fileLabel.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      fileLabel.classList.add("dragover");
+    });
+
+    fileLabel.addEventListener("dragleave", () => {
+      fileLabel.classList.remove("dragover");
+    });
+
+    fileLabel.addEventListener("drop", (e) => {
+      e.preventDefault();
+      fileLabel.classList.remove("dragover");
+      const files = e.dataTransfer.files;
+      if (files.length) {
+        selectedFile = files[0];
+        fileInput.files = files;
+        updateFileInfo();
+      }
+    });
+
+    fileInput.addEventListener("change", (e) => {
+      selectedFile = e.target.files[0];
+      updateFileInfo();
+    });
+
+    function updateFileInfo() {
+      if (!selectedFile) return;
+
+      fileName.innerText = `✓ ${selectedFile.name}`;
+      document.getElementById("fileSize").innerText = (selectedFile.size / 1024 / 1024).toFixed(2) + " MB";
+      fileInfo.style.display = "grid";
+    }
+
+    function formatBytes(bytes) {
+      return (bytes / 1024 / 1024).toFixed(2);
+    }
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function setStatus(text, type = "info") {
+      statusEl.innerText = text;
+      statusEl.className = `status-message ${type}`;
+      if (type === "info" && text.includes("Uploading")) {
+        statusEl.className = "status-message status-uploading";
+        statusEl.innerHTML = `<span class="spinner"></span>${text}`;
+      }
+    }
+
+    function setProgress() {
+      const percent = Math.floor((uploadedCount / totalParts) * 100);
+      document.getElementById("progress").style.width = percent + "%";
+      document.getElementById("progressValue").innerText = percent;
+
+      const elapsed = (Date.now() - startTime) / 1000;
+      const speed = uploadedBytes / elapsed;
+      const remaining = (selectedFile.size - uploadedBytes) / speed;
+
+      document.getElementById("speed").innerText = formatBytes(speed) + " MB/s";
+      document.getElementById("timeRemaining").innerText = formatTime(remaining);
+      document.getElementById("uploadedSize").innerText = formatBytes(uploadedBytes) + " MB";
+      document.getElementById("totalSize").innerText = formatBytes(selectedFile.size) + " MB";
+
+      setStatus(`📤 Uploading: ${uploadedCount}/${totalParts} chunks (${percent}%)`);
+    }
+
+    async function initUpload(file) {
+      const formData = new FormData();
+      formData.append("filename", file.name);
+      formData.append("file_size", file.size);
+      formData.append("content_type", file.type || "application/octet-stream");
+
+      const res = await fetch(`${API_BASE}/upload/init`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error("Init upload failed");
+      }
+
+      const data = await res.json();
+
+      uploadId = data.upload_id;
+      chunkSize = data.chunk_size;
+      totalParts = data.total_parts;
+
+      localStorage.setItem("upload_id", uploadId);
+      localStorage.setItem("chunk_size", chunkSize);
+      localStorage.setItem("total_parts", totalParts);
+
+      document.getElementById("chunkCount").innerText = totalParts;
+
+      return data;
+    }
+
+    async function uploadOneChunk(file, partNumber) {
+      const start = (partNumber - 1) * chunkSize;
+      const end = Math.min(start + chunkSize, file.size);
+      const blob = file.slice(start, end);
+
+      const formData = new FormData();
+      formData.append("chunk", blob);
+
+      const res = await fetch(`${API_BASE}/upload/${uploadId}/chunk/${partNumber}`, {
+        method: "POST",
+        body: formData
+      });
+
+      if (!res.ok) {
+        throw new Error(`Upload part ${partNumber} failed`);
+      }
+
+      uploadedBytes += blob.size;
+      return await res.json();
+    }
+
+    async function uploadWithRetry(file, partNumber, maxRetry = 3) {
+      for (let attempt = 1; attempt <= maxRetry; attempt++) {
+        try {
+          await uploadOneChunk(file, partNumber);
+          uploadedCount++;
+          setProgress();
+          return;
+        } catch (err) {
+          console.error(`Part ${partNumber} failed attempt ${attempt}`, err);
+
+          if (attempt === maxRetry) {
+            throw err;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
+    }
+
+    async function uploadParallel(file, partNumbers) {
+      let currentIndex = 0;
+
+      async function worker() {
+        while (currentIndex < partNumbers.length) {
+          const partNumber = partNumbers[currentIndex];
+          currentIndex++;
+
+          await uploadWithRetry(file, partNumber);
+        }
+      }
+
+      const workers = [];
+
+      for (let i = 0; i < CONCURRENCY; i++) {
+        workers.push(worker());
+      }
+
+      await Promise.all(workers);
+    }
+
+    async function getUploadStatus() {
+      const res = await fetch(`${API_BASE}/upload/${uploadId}/status`);
+
+      if (!res.ok) {
+        throw new Error("Get status failed");
+      }
+
+      return await res.json();
+    }
+
+    async function completeUpload() {
+      const res = await fetch(`${API_BASE}/upload/${uploadId}/complete`, {
+        method: "POST"
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || "Complete upload failed");
+      }
+
+      return await res.json();
+    }
+
+    async function startUpload() {
+      try {
+        if (!selectedFile) {
+          setStatus("⚠️ Vui lòng chọn file trước!", "warning");
+          return;
+        }
+
+        uploadBtn.disabled = true;
+        resumeBtn.disabled = true;
+        progressSection.style.display = "block";
+
+        startTime = Date.now();
+        uploadedBytes = 0;
+        uploadedCount = 0;
+
+        const initData = await initUpload(selectedFile);
+
+        const parts = [];
+        for (let i = 1; i <= initData.total_parts; i++) {
+          parts.push(i);
+        }
+
+        await uploadParallel(selectedFile, parts);
+
+        setStatus("⏳ Hoàn thành upload, đang finalize...", "info");
+        const result = await completeUpload();
+
+        setStatus("⏳ Chuyển đổi sang HLS...", "info");
+        // Auto convert to HLS
+        const convertRes = await fetch(`${API_BASE}/video/${uploadId}/convert-hls`, {
+          method: "POST"
+        });
+
+        if (convertRes.ok) {
+          const hlsData = await convertRes.json();
+          setStatus("✅ Upload & chuyển đổi thành công! Video sẵn sàng phát.", "success");
+        } else {
+          setStatus("✅ Upload thành công! " + result.final_path, "success");
+        }
+
+        localStorage.removeItem("upload_id");
+        localStorage.removeItem("chunk_size");
+        localStorage.removeItem("total_parts");
+
+        uploadBtn.disabled = false;
+        resumeBtn.disabled = false;
+
+      } catch (err) {
+        console.error(err);
+        setStatus("❌ Lỗi: " + err.message, "error");
+        uploadBtn.disabled = false;
+        resumeBtn.disabled = false;
+      }
+    }
+
+    async function resumeUpload() {
+      try {
+        if (!selectedFile) {
+          setStatus("⚠️ Vui lòng chọn lại file cũ!", "warning");
+          return;
+        }
+
+        if (!uploadId) {
+          setStatus("⚠️ Không có session để resume!", "warning");
+          return;
+        }
+
+        const statusData = await getUploadStatus();
+
+        if (selectedFile.size !== statusData.file_size) {
+          setStatus("❌ File không trùng khớp với file upload dở!", "error");
+          return;
+        }
+
+        uploadBtn.disabled = true;
+        resumeBtn.disabled = true;
+        progressSection.style.display = "block";
+
+        startTime = Date.now();
+        chunkSize = statusData.chunk_size;
+        totalParts = statusData.total_parts;
+        uploadedCount = statusData.uploaded_parts.length;
+        uploadedBytes = statusData.chunk_size * uploadedCount;
+
+        const missingParts = statusData.missing_parts;
+        setProgress();
+
+        if (missingParts.length > 0) {
+          setStatus(`📤 Tiếp tục upload ${missingParts.length} chunks còn lại...`, "info");
+          await uploadParallel(selectedFile, missingParts);
+        }
+
+        setStatus("⏳ Hoàn thành upload, đang finalize...", "info");
+        const result = await completeUpload();
+
+        setStatus("✅ Resume thành công! " + result.final_path, "success");
+
+        localStorage.removeItem("upload_id");
+        localStorage.removeItem("chunk_size");
+        localStorage.removeItem("total_parts");
+
+        uploadBtn.disabled = false;
+        resumeBtn.disabled = false;
+
+      } catch (err) {
+        console.error(err);
+        setStatus("❌ Resume lỗi: " + err.message, "error");
+        uploadBtn.disabled = false;
+        resumeBtn.disabled = false;
+      }
+    }
+
+    function clearSession() {
+      if (confirm("Xóa upload session hiện tại?")) {
+        localStorage.removeItem("upload_id");
+        localStorage.removeItem("chunk_size");
+        localStorage.removeItem("total_parts");
+        uploadId = null;
+        uploadedCount = 0;
+        progressSection.style.display = "none";
+        fileInfo.style.display = "none";
+        fileName.innerText = "";
+        selectedFile = null;
+        fileInput.value = "";
+        setStatus("✓ Session đã được xóa", "success");
+      }
+    }
+
+    // Check nếu có session cũ
+    if (uploadId) {
+      setStatus("📌 Có upload session cũ, nhấn Resume để tiếp tục", "warning");
+    }
+
+    // Close player khi nhấn Escape
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeVideoPlayer();
+      }
+    });
+  </script>
+</body>
+</html>
